@@ -1,0 +1,782 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AWR vs WDR Performance Comparison Report</title>
+<style>
+  :root {
+    --oracle-color: #c74634;
+    --gauss-color: #2b7ae8;
+    --bg-primary: #f8f9fa;
+    --bg-white: #ffffff;
+    --border-color: #e2e8f0;
+    --text-primary: #1a202c;
+    --text-secondary: #64748b;
+    --green: #16a34a;
+    --red: #dc2626;
+    --yellow: #f59e0b;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "PingFang SC", "Microsoft YaHei", sans-serif;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    line-height: 1.6;
+  }
+
+  .header {
+    background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+    color: white;
+    padding: 32px 40px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .header h1 {
+    font-size: 22px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+  }
+
+  .header .subtitle {
+    font-size: 13px;
+    color: #94a3b8;
+    margin-top: 4px;
+  }
+
+  .header .generated {
+    font-size: 12px;
+    color: #94a3b8;
+    text-align: right;
+  }
+
+  .legend {
+    display: flex;
+    gap: 24px;
+    padding: 16px 40px;
+    background: var(--bg-white);
+    border-bottom: 1px solid var(--border-color);
+    font-size: 13px;
+    color: var(--text-secondary);
+  }
+
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .legend-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+  }
+
+  .legend-dot.oracle { background: var(--oracle-color); }
+  .legend-dot.gauss { background: var(--gauss-color); }
+  .legend-dot.better { background: var(--green); }
+  .legend-dot.worse { background: var(--red); }
+
+  .container {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 24px 40px 60px;
+  }
+
+  .section {
+    margin-bottom: 32px;
+  }
+
+  .section-title {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 16px;
+    padding-left: 12px;
+    border-left: 3px solid #334155;
+  }
+
+  /* ========== Instance Info ========== */
+  .instance-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+  }
+
+  .instance-card {
+    background: var(--bg-white);
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+    overflow: hidden;
+  }
+
+  .instance-card-header {
+    padding: 12px 20px;
+    font-size: 14px;
+    font-weight: 600;
+    color: white;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .instance-card-header.oracle { background: var(--oracle-color); }
+  .instance-card-header.gauss { background: var(--gauss-color); }
+
+  .instance-card-body {
+    padding: 0;
+  }
+
+  .instance-card-body table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  .instance-card-body td {
+    padding: 10px 20px;
+    font-size: 13px;
+    border-bottom: 1px solid #f1f5f9;
+  }
+
+  .instance-card-body tr:last-child td {
+    border-bottom: none;
+  }
+
+  .instance-card-body td:first-child {
+    color: var(--text-secondary);
+    width: 140px;
+    font-weight: 500;
+  }
+
+  .instance-card-body td:last-child {
+    font-weight: 600;
+  }
+
+  /* ========== Comparison Tables ========== */
+  .comp-table-wrapper {
+    background: var(--bg-white);
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+    overflow: hidden;
+  }
+
+  .comp-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+
+  .comp-table thead th {
+    padding: 12px 16px;
+    text-align: left;
+    font-weight: 600;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-secondary);
+    background: #f8fafc;
+    border-bottom: 2px solid var(--border-color);
+    white-space: nowrap;
+  }
+
+  .comp-table thead th.col-oracle {
+    background: #fef2f0;
+    color: var(--oracle-color);
+  }
+
+  .comp-table thead th.col-gauss {
+    background: #eff6ff;
+    color: var(--gauss-color);
+  }
+
+  .comp-table thead th.col-diff {
+    background: #f8fafc;
+    text-align: center;
+  }
+
+  .comp-table tbody td {
+    padding: 10px 16px;
+    border-bottom: 1px solid #f1f5f9;
+    vertical-align: top;
+  }
+
+  .comp-table tbody tr:hover {
+    background: #f8fafc;
+  }
+
+  .comp-table tbody tr:last-child td {
+    border-bottom: none;
+  }
+
+  .comp-table .rank {
+    color: var(--text-secondary);
+    font-weight: 500;
+    text-align: center;
+    width: 36px;
+  }
+
+  .comp-table .metric-name {
+    font-weight: 600;
+    max-width: 220px;
+  }
+
+  .comp-table .num {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    font-family: "SF Mono", "Fira Code", "Cascadia Code", monospace;
+  }
+
+  .diff-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 11px;
+    font-weight: 600;
+    text-align: center;
+    min-width: 56px;
+  }
+
+  .diff-badge.better {
+    background: #dcfce7;
+    color: var(--green);
+  }
+
+  .diff-badge.worse {
+    background: #fef2f2;
+    color: var(--red);
+  }
+
+  .diff-badge.neutral {
+    background: #fefce8;
+    color: var(--yellow);
+  }
+
+  .diff-cell {
+    text-align: center;
+  }
+
+  /* ========== Column group dividers ========== */
+  .comp-table .divider-left {
+    border-left: 2px solid var(--border-color);
+  }
+
+  /* ========== Top SQL Section ========== */
+  .sql-item {
+    background: var(--bg-white);
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+    margin-bottom: 16px;
+    overflow: hidden;
+  }
+
+  .sql-item-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 20px;
+    background: #f8fafc;
+    border-bottom: 1px solid var(--border-color);
+    cursor: pointer;
+  }
+
+  .sql-item-header:hover {
+    background: #f1f5f9;
+  }
+
+  .sql-rank-badge {
+    background: #334155;
+    color: white;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    font-weight: 600;
+    flex-shrink: 0;
+  }
+
+  .sql-item-title {
+    flex: 1;
+    margin-left: 12px;
+    font-size: 13px;
+    display: flex;
+    gap: 16px;
+    align-items: center;
+  }
+
+  .sql-id-tag {
+    font-family: "SF Mono", monospace;
+    font-size: 12px;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-weight: 600;
+  }
+
+  .sql-id-tag.oracle {
+    background: #fef2f0;
+    color: var(--oracle-color);
+  }
+
+  .sql-id-tag.gauss {
+    background: #eff6ff;
+    color: var(--gauss-color);
+  }
+
+  .sql-metrics-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1px;
+    background: var(--border-color);
+  }
+
+  .sql-metric-cell {
+    background: var(--bg-white);
+    padding: 14px 20px;
+    text-align: center;
+  }
+
+  .sql-metric-cell .label {
+    font-size: 11px;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 8px;
+  }
+
+  .sql-metric-values {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .sql-metric-val {
+    font-size: 15px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    font-family: "SF Mono", monospace;
+  }
+
+  .sql-metric-val.oracle { color: var(--oracle-color); }
+  .sql-metric-val.gauss { color: var(--gauss-color); }
+
+  .sql-metric-vs {
+    font-size: 11px;
+    color: var(--text-secondary);
+    font-weight: 500;
+  }
+
+  .sql-text-area {
+    padding: 16px 20px;
+    border-top: 1px solid var(--border-color);
+  }
+
+  .sql-text-label {
+    font-size: 11px;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 8px;
+  }
+
+  .sql-text-content {
+    font-family: "SF Mono", "Fira Code", monospace;
+    font-size: 12px;
+    line-height: 1.7;
+    background: #f8fafc;
+    padding: 12px 16px;
+    border-radius: 6px;
+    color: #334155;
+    white-space: pre-wrap;
+    word-break: break-all;
+    max-height: 120px;
+    overflow-y: auto;
+  }
+
+  /* ========== Footer ========== */
+  .footer {
+    text-align: center;
+    padding: 24px;
+    font-size: 12px;
+    color: var(--text-secondary);
+    border-top: 1px solid var(--border-color);
+  }
+
+  /* ========== Responsive ========== */
+  @media (max-width: 900px) {
+    .instance-grid { grid-template-columns: 1fr; }
+    .sql-metrics-grid { grid-template-columns: repeat(2, 1fr); }
+    .container { padding: 16px; }
+    .header { padding: 24px 16px; flex-direction: column; gap: 8px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ===== Header ===== -->
+<div class="header">
+  <div>
+    <h1>AWR vs WDR Performance Comparison Report</h1>
+    <div class="subtitle">Oracle &rarr; openGauss Migration Performance Analysis</div>
+  </div>
+  <div class="generated">
+    Generated: 2026-03-11 20:30:00<br>
+    Tool: awr2wdr v1.0
+  </div>
+</div>
+
+<!-- ===== Legend ===== -->
+<div class="legend">
+  <div class="legend-item"><div class="legend-dot oracle"></div>Oracle</div>
+  <div class="legend-item"><div class="legend-dot gauss"></div>openGauss</div>
+  <div class="legend-item"><div class="legend-dot better"></div>openGauss 更优</div>
+  <div class="legend-item"><div class="legend-dot worse"></div>openGauss 较差</div>
+</div>
+
+<div class="container">
+
+  <!-- ===== Section 1: Instance Summary ===== -->
+  <div class="section">
+    <div class="section-title">实例汇总信息</div>
+    <div class="instance-grid">
+      <!-- Oracle Card -->
+      <div class="instance-card">
+        <div class="instance-card-header oracle">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="7" stroke="white" stroke-width="1.5"/><path d="M4 8h8" stroke="white" stroke-width="1.5"/></svg>
+          Oracle Database
+        </div>
+        <div class="instance-card-body">
+          <table>
+            <tr><td>数据库名</td><td>PRODDB</td></tr>
+            <tr><td>实例名</td><td>proddb1</td></tr>
+            <tr><td>版本</td><td>19.16.0.0.0</td></tr>
+            <tr><td>主机名</td><td>ora-prod-01</td></tr>
+            <tr><td>快照范围</td><td>2026-03-11 08:00 ~ 09:00</td></tr>
+            <tr><td>DB Time</td><td>1,245.32 min</td></tr>
+            <tr><td>Elapsed Time</td><td>60.00 min</td></tr>
+            <tr><td>DB CPU</td><td>523.18 min</td></tr>
+          </table>
+        </div>
+      </div>
+      <!-- openGauss Card -->
+      <div class="instance-card">
+        <div class="instance-card-header gauss">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="2" y="2" width="12" height="12" rx="2" stroke="white" stroke-width="1.5"/><path d="M5 8h6M8 5v6" stroke="white" stroke-width="1.5"/></svg>
+          openGauss
+        </div>
+        <div class="instance-card-body">
+          <table>
+            <tr><td>数据库名</td><td>proddb</td></tr>
+            <tr><td>实例名</td><td>gaussdb_prod</td></tr>
+            <tr><td>版本</td><td>5.0.1</td></tr>
+            <tr><td>主机名</td><td>gs-prod-01</td></tr>
+            <tr><td>快照范围</td><td>2026-03-11 08:00 ~ 09:00</td></tr>
+            <tr><td>DB Time</td><td>987.56 min</td></tr>
+            <tr><td>Elapsed Time</td><td>60.00 min</td></tr>
+            <tr><td>DB CPU</td><td>412.33 min</td></tr>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== Section 2: Top Wait Events ===== -->
+  <div class="section">
+    <div class="section-title">Top 等待事件对比</div>
+    <div class="comp-table-wrapper">
+      <table class="comp-table">
+        <thead>
+          <tr>
+            <th style="width:36px">#</th>
+            <th class="col-oracle">等待事件<br><small>Oracle</small></th>
+            <th class="col-oracle">等待类别</th>
+            <th class="col-oracle num">等待次数</th>
+            <th class="col-oracle num">总等待时间(s)</th>
+            <th class="col-oracle num">占DB Time%</th>
+            <th class="col-gauss divider-left">等待事件<br><small>openGauss</small></th>
+            <th class="col-gauss">等待类别</th>
+            <th class="col-gauss num">等待次数</th>
+            <th class="col-gauss num">总等待时间(s)</th>
+            <th class="col-gauss num">占DB Time%</th>
+            <th class="col-diff divider-left">时间差异</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="rank">1</td>
+            <td class="metric-name">db file sequential read</td>
+            <td>User I/O</td>
+            <td class="num">2,345,678</td>
+            <td class="num">8,234.5</td>
+            <td class="num">32.4%</td>
+            <td class="metric-name divider-left">DataFileRead</td>
+            <td>IO</td>
+            <td class="num">1,876,543</td>
+            <td class="num">5,123.8</td>
+            <td class="num">21.6%</td>
+            <td class="diff-cell divider-left"><span class="diff-badge better">-37.7%</span></td>
+          </tr>
+          <tr>
+            <td class="rank">2</td>
+            <td class="metric-name">log file sync</td>
+            <td>Commit</td>
+            <td class="num">567,890</td>
+            <td class="num">3,456.2</td>
+            <td class="num">13.6%</td>
+            <td class="metric-name divider-left">WALWriteLock</td>
+            <td>LWLock</td>
+            <td class="num">623,456</td>
+            <td class="num">4,012.5</td>
+            <td class="num">16.9%</td>
+            <td class="diff-cell divider-left"><span class="diff-badge worse">+16.1%</span></td>
+          </tr>
+          <tr>
+            <td class="rank">3</td>
+            <td class="metric-name">db file scattered read</td>
+            <td>User I/O</td>
+            <td class="num">1,234,567</td>
+            <td class="num">2,876.3</td>
+            <td class="num">11.3%</td>
+            <td class="metric-name divider-left">DataFileExtend</td>
+            <td>IO</td>
+            <td class="num">987,654</td>
+            <td class="num">2,134.7</td>
+            <td class="num">9.0%</td>
+            <td class="diff-cell divider-left"><span class="diff-badge better">-25.8%</span></td>
+          </tr>
+          <tr>
+            <td class="rank">4</td>
+            <td class="metric-name">read by other session</td>
+            <td>User I/O</td>
+            <td class="num">345,678</td>
+            <td class="num">1,567.8</td>
+            <td class="num">6.2%</td>
+            <td class="metric-name divider-left">BufMappingLock</td>
+            <td>LWLock</td>
+            <td class="num">298,765</td>
+            <td class="num">1,345.2</td>
+            <td class="num">5.7%</td>
+            <td class="diff-cell divider-left"><span class="diff-badge better">-14.2%</span></td>
+          </tr>
+          <tr>
+            <td class="rank">5</td>
+            <td class="metric-name">latch: cache buffers chains</td>
+            <td>Concurrency</td>
+            <td class="num">789,012</td>
+            <td class="num">1,234.5</td>
+            <td class="num">4.9%</td>
+            <td class="metric-name divider-left">CBufHashPartitionLock</td>
+            <td>LWLock</td>
+            <td class="num">912,345</td>
+            <td class="num">1,678.9</td>
+            <td class="num">7.1%</td>
+            <td class="diff-cell divider-left"><span class="diff-badge worse">+36.0%</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ===== Section 3: Top SQL ===== -->
+  <div class="section">
+    <div class="section-title">Top SQL 对比（按执行次数排名）</div>
+
+    <!-- SQL #1 -->
+    <div class="sql-item">
+      <div class="sql-item-header">
+        <div style="display:flex;align-items:center;">
+          <div class="sql-rank-badge">1</div>
+          <div class="sql-item-title">
+            <span class="sql-id-tag oracle">SQL_ID: 4r5s6t7u8v</span>
+            <span class="sql-id-tag gauss">Query ID: 78923456</span>
+            <span style="color:#64748b;font-size:12px;">SELECT c.customer_name, o.order_id, o.total_amount FROM customers c JOIN orders o ON ...</span>
+          </div>
+        </div>
+      </div>
+      <div class="sql-metrics-grid">
+        <div class="sql-metric-cell">
+          <div class="label">执行次数</div>
+          <div class="sql-metric-values">
+            <span class="sql-metric-val oracle">856,234</span>
+            <span class="sql-metric-vs">vs</span>
+            <span class="sql-metric-val gauss">856,012</span>
+          </div>
+        </div>
+        <div class="sql-metric-cell">
+          <div class="label">平均响应时间 (ms)</div>
+          <div class="sql-metric-values">
+            <span class="sql-metric-val oracle">12.34</span>
+            <span class="sql-metric-vs">vs</span>
+            <span class="sql-metric-val gauss">8.76</span>
+          </div>
+          <div style="margin-top:6px;"><span class="diff-badge better">-29.0%</span></div>
+        </div>
+        <div class="sql-metric-cell">
+          <div class="label">平均逻辑读</div>
+          <div class="sql-metric-values">
+            <span class="sql-metric-val oracle">245</span>
+            <span class="sql-metric-vs">vs</span>
+            <span class="sql-metric-val gauss">198</span>
+          </div>
+          <div style="margin-top:6px;"><span class="diff-badge better">-19.2%</span></div>
+        </div>
+        <div class="sql-metric-cell">
+          <div class="label">平均物理读</div>
+          <div class="sql-metric-values">
+            <span class="sql-metric-val oracle">18</span>
+            <span class="sql-metric-vs">vs</span>
+            <span class="sql-metric-val gauss">12</span>
+          </div>
+          <div style="margin-top:6px;"><span class="diff-badge better">-33.3%</span></div>
+        </div>
+      </div>
+      <div class="sql-text-area">
+        <div class="sql-text-label">SQL 文本</div>
+        <div class="sql-text-content">SELECT c.customer_name, o.order_id, o.total_amount, p.product_name
+FROM customers c
+JOIN orders o ON c.customer_id = o.customer_id
+JOIN order_items oi ON o.order_id = oi.order_id
+JOIN products p ON oi.product_id = p.product_id
+WHERE o.order_date >= TRUNC(SYSDATE) - 30
+  AND o.status = 'COMPLETED'
+ORDER BY o.total_amount DESC</div>
+      </div>
+    </div>
+
+    <!-- SQL #2 -->
+    <div class="sql-item">
+      <div class="sql-item-header">
+        <div style="display:flex;align-items:center;">
+          <div class="sql-rank-badge">2</div>
+          <div class="sql-item-title">
+            <span class="sql-id-tag oracle">SQL_ID: 9a8b7c6d5e</span>
+            <span class="sql-id-tag gauss">Query ID: 34567891</span>
+            <span style="color:#64748b;font-size:12px;">UPDATE inventory SET quantity = quantity - :bind1 WHERE product_id = :bind2 ...</span>
+          </div>
+        </div>
+      </div>
+      <div class="sql-metrics-grid">
+        <div class="sql-metric-cell">
+          <div class="label">执行次数</div>
+          <div class="sql-metric-values">
+            <span class="sql-metric-val oracle">534,123</span>
+            <span class="sql-metric-vs">vs</span>
+            <span class="sql-metric-val gauss">534,089</span>
+          </div>
+        </div>
+        <div class="sql-metric-cell">
+          <div class="label">平均响应时间 (ms)</div>
+          <div class="sql-metric-values">
+            <span class="sql-metric-val oracle">3.21</span>
+            <span class="sql-metric-vs">vs</span>
+            <span class="sql-metric-val gauss">4.56</span>
+          </div>
+          <div style="margin-top:6px;"><span class="diff-badge worse">+42.1%</span></div>
+        </div>
+        <div class="sql-metric-cell">
+          <div class="label">平均逻辑读</div>
+          <div class="sql-metric-values">
+            <span class="sql-metric-val oracle">56</span>
+            <span class="sql-metric-vs">vs</span>
+            <span class="sql-metric-val gauss">78</span>
+          </div>
+          <div style="margin-top:6px;"><span class="diff-badge worse">+39.3%</span></div>
+        </div>
+        <div class="sql-metric-cell">
+          <div class="label">平均物理读</div>
+          <div class="sql-metric-values">
+            <span class="sql-metric-val oracle">2</span>
+            <span class="sql-metric-vs">vs</span>
+            <span class="sql-metric-val gauss">5</span>
+          </div>
+          <div style="margin-top:6px;"><span class="diff-badge worse">+150%</span></div>
+        </div>
+      </div>
+      <div class="sql-text-area">
+        <div class="sql-text-label">SQL 文本</div>
+        <div class="sql-text-content">UPDATE inventory
+SET quantity = quantity - :bind1,
+    last_updated = SYSDATE
+WHERE product_id = :bind2
+  AND warehouse_id = :bind3
+  AND quantity >= :bind1</div>
+      </div>
+    </div>
+
+    <!-- SQL #3 -->
+    <div class="sql-item">
+      <div class="sql-item-header">
+        <div style="display:flex;align-items:center;">
+          <div class="sql-rank-badge">3</div>
+          <div class="sql-item-title">
+            <span class="sql-id-tag oracle">SQL_ID: 1x2y3z4w5v</span>
+            <span class="sql-id-tag gauss">Query ID: 56789123</span>
+            <span style="color:#64748b;font-size:12px;">SELECT account_id, balance, last_transaction_date FROM accounts WHERE ...</span>
+          </div>
+        </div>
+      </div>
+      <div class="sql-metrics-grid">
+        <div class="sql-metric-cell">
+          <div class="label">执行次数</div>
+          <div class="sql-metric-values">
+            <span class="sql-metric-val oracle">423,567</span>
+            <span class="sql-metric-vs">vs</span>
+            <span class="sql-metric-val gauss">423,501</span>
+          </div>
+        </div>
+        <div class="sql-metric-cell">
+          <div class="label">平均响应时间 (ms)</div>
+          <div class="sql-metric-values">
+            <span class="sql-metric-val oracle">5.67</span>
+            <span class="sql-metric-vs">vs</span>
+            <span class="sql-metric-val gauss">5.43</span>
+          </div>
+          <div style="margin-top:6px;"><span class="diff-badge better">-4.2%</span></div>
+        </div>
+        <div class="sql-metric-cell">
+          <div class="label">平均逻辑读</div>
+          <div class="sql-metric-values">
+            <span class="sql-metric-val oracle">134</span>
+            <span class="sql-metric-vs">vs</span>
+            <span class="sql-metric-val gauss">128</span>
+          </div>
+          <div style="margin-top:6px;"><span class="diff-badge better">-4.5%</span></div>
+        </div>
+        <div class="sql-metric-cell">
+          <div class="label">平均物理读</div>
+          <div class="sql-metric-values">
+            <span class="sql-metric-val oracle">8</span>
+            <span class="sql-metric-vs">vs</span>
+            <span class="sql-metric-val gauss">7</span>
+          </div>
+          <div style="margin-top:6px;"><span class="diff-badge better">-12.5%</span></div>
+        </div>
+      </div>
+      <div class="sql-text-area">
+        <div class="sql-text-label">SQL 文本</div>
+        <div class="sql-text-content">SELECT account_id, balance, last_transaction_date, account_type
+FROM accounts
+WHERE customer_id = :bind1
+  AND status = 'ACTIVE'
+  AND balance > 0
+ORDER BY last_transaction_date DESC</div>
+      </div>
+    </div>
+
+  </div>
+
+</div>
+
+<!-- ===== Footer ===== -->
+<div class="footer">
+  Generated by <strong>awr2wdr</strong> &mdash; Oracle AWR vs openGauss WDR Performance Comparison Tool
+</div>
+
+</body>
+</html>

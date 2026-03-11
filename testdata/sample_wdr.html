@@ -1,0 +1,39 @@
+<html>
+<head><title>WDR Report</title></head>
+<body>
+<h1>openGauss Workload Diagnosis Report</h1>
+
+<h2>Report Info</h2>
+<table>
+<tr><th>Item</th><th>Value</th></tr>
+<tr><td>DB Name</td><td>proddb</td></tr>
+<tr><td>Instance Name</td><td>gaussdb_prod</td></tr>
+<tr><td>Host Name</td><td>gs-prod-01</td></tr>
+<tr><td>Version</td><td>openGauss 5.0.1</td></tr>
+<tr><td>Snap Start</td><td>2026-03-11 08:00:00</td></tr>
+<tr><td>Snap End</td><td>2026-03-11 09:00:00</td></tr>
+<tr><td>Elapsed Time(min)</td><td>60.00</td></tr>
+<tr><td>DB Time(min)</td><td>987.56</td></tr>
+<tr><td>DB CPU(min)</td><td>412.33</td></tr>
+</table>
+
+<h2>Top Wait Events</h2>
+<table>
+<tr><th>Event</th><th>Type</th><th>Waits</th><th>Total Wait Time(us)</th><th>% DB time</th></tr>
+<tr><td>DataFileRead</td><td>IO</td><td>1876543</td><td>5123800000</td><td>21.60</td></tr>
+<tr><td>WALWriteLock</td><td>LWLock</td><td>623456</td><td>4012500000</td><td>16.90</td></tr>
+<tr><td>DataFileExtend</td><td>IO</td><td>987654</td><td>2134700000</td><td>9.00</td></tr>
+<tr><td>BufMappingLock</td><td>LWLock</td><td>298765</td><td>1345200000</td><td>5.70</td></tr>
+<tr><td>CBufHashPartitionLock</td><td>LWLock</td><td>912345</td><td>1678900000</td><td>7.10</td></tr>
+</table>
+
+<h2>SQL ordered by Executions</h2>
+<table>
+<tr><th>Unique SQL Id</th><th>SQL Text</th><th>Executions</th><th>Elapsed Time(us)</th><th>CPU Time(us)</th><th>Physical Read</th><th>Logical Read</th><th>Rows</th></tr>
+<tr><td>78923456</td><td>SELECT c.customer_name, o.order_id, o.total_amount FROM customers c JOIN orders o ON c.customer_id = o.customer_id WHERE o.order_date >= now() - interval '30 days'</td><td>856012</td><td>7499625120</td><td>5307305520</td><td>10272144</td><td>169490376</td><td>856012</td></tr>
+<tr><td>34567891</td><td>UPDATE inventory SET quantity = quantity - $1, last_updated = now() WHERE product_id = $2 AND warehouse_id = $3</td><td>534089</td><td>2435285040</td><td>1760652960</td><td>2670445</td><td>41658942</td><td>534089</td></tr>
+<tr><td>56789123</td><td>SELECT account_id, balance, last_transaction_date, account_type FROM accounts WHERE customer_id = $1 AND status = 'ACTIVE' AND balance > 0 ORDER BY last_transaction_date DESC</td><td>423501</td><td>2299740430</td><td>1801593780</td><td>2964507</td><td>54208128</td><td>423501</td></tr>
+</table>
+
+</body>
+</html>
