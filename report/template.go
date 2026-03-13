@@ -191,6 +191,10 @@ const reportTemplate = `<!DOCTYPE html>
             <tr><td>DB Time</td><td>{{formatFloat .Oracle.Instance.DBTime}} min</td></tr>
             <tr><td>Elapsed Time</td><td>{{formatFloat .Oracle.Instance.ElapsedTime}} min</td></tr>
             <tr><td>DB CPU</td><td>{{formatFloat .Oracle.Instance.DBCPU}} min</td></tr>
+            <tr><td>平均 QPS</td><td>{{formatFloat .Oracle.Instance.QPS}}</td></tr>
+            <tr><td>平均 TPS</td><td>{{formatFloat .Oracle.Instance.TPS}}</td></tr>
+            <tr><td>平均 DB Time/s</td><td>{{formatFloat .Oracle.Instance.AvgDBTime}} s</td></tr>
+            <tr><td>平均 CPU Time/s</td><td>{{formatFloat .Oracle.Instance.AvgCPUTime}} s</td></tr>
           </table>
         </div>
       </div>
@@ -206,6 +210,10 @@ const reportTemplate = `<!DOCTYPE html>
             <tr><td>DB Time</td><td>{{formatFloat .Gauss.Instance.DBTime}} min</td></tr>
             <tr><td>Elapsed Time</td><td>{{formatFloat .Gauss.Instance.ElapsedTime}} min</td></tr>
             <tr><td>DB CPU</td><td>{{formatFloat .Gauss.Instance.DBCPU}} min</td></tr>
+            <tr><td>平均 QPS</td><td>{{formatFloat .Gauss.Instance.QPS}}</td></tr>
+            <tr><td>平均 TPS</td><td>{{formatFloat .Gauss.Instance.TPS}}</td></tr>
+            <tr><td>平均 DB Time/s</td><td>{{formatFloat .Gauss.Instance.AvgDBTime}} s</td></tr>
+            <tr><td>平均 CPU Time/s</td><td>{{formatFloat .Gauss.Instance.AvgCPUTime}} s</td></tr>
           </table>
         </div>
       </div>

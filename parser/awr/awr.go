@@ -115,7 +115,7 @@ func parseInstanceInfo(doc *goquery.Document) (model.InstanceInfo, error) {
 		}
 	})
 
-	// Load profile for DB CPU
+	// Load profile for DB CPU, QPS, TPS, AvgDBTime, AvgCPUTime
 	doc.Find("table").Each(func(i int, s *goquery.Selection) {
 		summary, _ := s.Attr("summary")
 		if strings.Contains(strings.ToLower(summary), "load profile") {
@@ -125,9 +125,17 @@ func parseInstanceInfo(doc *goquery.Document) (model.InstanceInfo, error) {
 					return
 				}
 				label := strings.TrimSpace(cells.Eq(0).Text())
-				if strings.Contains(label, "DB CPU") {
-					perSec := parseNumber(cells.Eq(1).Text())
-					info.DBCPU = perSec * info.ElapsedTime // per-second * elapsed minutes * 60 / 60
+				perSec := parseNumber(cells.Eq(1).Text())
+				switch {
+				case strings.Contains(label, "DB CPU"):
+					info.DBCPU = perSec * info.ElapsedTime
+					info.AvgCPUTime = perSec
+				case strings.Contains(label, "DB Time"):
+					info.AvgDBTime = perSec
+				case strings.Contains(label, "Executes") || strings.Contains(label, "Execute"):
+					info.QPS = perSec
+				case strings.Contains(label, "User commits") || strings.Contains(label, "Transactions"):
+					info.TPS = perSec
 				}
 			})
 		}

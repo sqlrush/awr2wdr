@@ -86,8 +86,23 @@ func parseInstanceInfo(doc *goquery.Document) (model.InstanceInfo, error) {
 			info.DBTime = parseNumber(val)
 		case strings.Contains(key, "DB CPU"):
 			info.DBCPU = parseNumber(val)
+		case strings.Contains(key, "QPS") || strings.Contains(key, "SQL/s"):
+			info.QPS = parseNumber(val)
+		case strings.Contains(key, "TPS") || strings.Contains(key, "Transaction/s"):
+			info.TPS = parseNumber(val)
 		}
 	})
+
+	// Compute AvgDBTime and AvgCPUTime from totals if not directly available
+	if info.ElapsedTime > 0 {
+		elapsedSec := info.ElapsedTime * 60
+		if info.AvgDBTime == 0 {
+			info.AvgDBTime = (info.DBTime * 60) / elapsedSec
+		}
+		if info.AvgCPUTime == 0 {
+			info.AvgCPUTime = (info.DBCPU * 60) / elapsedSec
+		}
+	}
 
 	return info, nil
 }

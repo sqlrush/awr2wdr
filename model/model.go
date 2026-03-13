@@ -11,6 +11,10 @@ type InstanceInfo struct {
 	DBTime       float64 // minutes
 	ElapsedTime  float64 // minutes
 	DBCPU        float64 // minutes
+	QPS          float64 // queries (SQL executions) per second
+	TPS          float64 // transactions per second
+	AvgDBTime    float64 // DB Time per second (seconds)
+	AvgCPUTime   float64 // DB CPU per second (seconds)
 }
 
 // WaitEvent holds a single wait event row.
